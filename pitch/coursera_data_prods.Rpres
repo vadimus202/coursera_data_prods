@@ -1,0 +1,115 @@
+FHA Loan Interest Rate Model App
+========================================================
+author: Vadim Bondarenko
+date: May, 15, 2016
+autosize: true
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+The App's Purpose
+========================================================
+
+Allows users to explore the relationship between the interest rate on newly issued FHA loans and various loan, borrower, and demographic variables as predictors.
+
+- Uses data from US Housing and Urban Development (HUD) website 
+- Fits multivariate linear model with Interest Rate as dependent variable
+- Allows users to select a US state and various independent variables
+- Reports model results, confidence intervals, and residual diagnostics
+
+```{r, cache = TRUE, include = FALSE}
+library(magrittr)
+library(dplyr)
+library(data.table)
+
+# set up DB
+db_path <- '../shiny/db/FHA_db_small.sqlite'
+db_src <- src_sqlite(db_path)
+# Add DB Table sources
+tbl_fha <- tbl(db_src, 'fha')
+tbl_acs_zip <- tbl(db_src, 'acs_zip')
+
+# Load Time Series data in RAM
+dt_ts <-
+    tbl(db_src, 'ts') %>%
+    collect() %>%
+    setDT(key = 'yr_mo')
+
+dt_mod <-
+    tbl_fha %>%
+    # filter(state==input$st) %>%
+    select(-county, -city, -source) %>%
+    collect(n = Inf) %>%
+    setDT() %>%
+    .[,list(rate, amount, rate_type,
+            down_pmt_src, purpose, property, year, lender,
+            zip, yr_mo)]
+
+    # Add Zip info
+    setkey(dt_mod, zip)
+    dt_mod <-
+        tbl_acs_zip %>%
+        filter(state=='DC') %>% 
+        select(-city, -state) %>%
+        collect() %>%
+        setDT(key = 'zip') %>%
+        .[dt_mod] %>%
+        .[,zip:=NULL]
+
+    # Add Time series
+    setkey(dt_mod, yr_mo)
+    dt_mod <- dt_ts[dt_mod][, yr_mo:=NULL]
+
+    # factor dates
+    if(dt_mod$year %>% unique() %>% length()>1){
+        ref_yr <- max(dt_mod$year) %>% as.character()
+        dt_mod[, year:=factor(year)]
+        dt_mod[, year:=relevel(year, ref = ref_yr)]
+    } else {
+        dt_mod[, year:=NULL]
+    }
+
+    # factor lenders
+    dt_lend_cnt <-
+        dt_mod[, .N, by=lender][N/nrow(dt_mod) > 0.05][order(-N)]
+
+    if(nrow(dt_lend_cnt)>0){
+        lend_top <- dt_lend_cnt$lender[1:min(5, nrow(dt_lend_cnt)-1)]
+        dt_mod[!(lender %in% lend_top), lender:='Other']
+        dt_mod[, lender:=factor(lender)]
+        dt_mod[, lender:=relevel(lender,'Other')]
+    } else {
+        dt_mod[, lender:=NULL]
+    }
+
+
+```
+
+
+The Data
+========================================================
+
+```{r, cache = TRUE}
+summary(dt_mod)
+```
+
+
+Example Plot
+========================================================
+
+```{r, cache = TRUE, fig.width=8, fig.height=4.5}
+mod_lm <- lm(rate ~ amount+purpose+mortg_30yr+zip_med_income, data = dt_mod)
+texreg::plotreg(mod_lm)
+```
+
+The App
+========================================================
+<a href="https://vadimus202.shinyapps.io/coursera_data_prods/",target='_blank'>
+    https://vadimus202.shinyapps.io/coursera_data_prods/ 
+</a>
+
+<div align="center">
+<img src="screen_shot.png" width=1000 height=`r 1000*(614/1078)`>
+</div>
