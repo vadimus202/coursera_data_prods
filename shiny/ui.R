@@ -29,7 +29,8 @@ fluidPage(
                         tags$li(tags$b('Select a US State:'), 
                                 'Subset the dataset to a single US state.'),
                         tags$li(tags$b('Select Multiple Predictors:'), 
-                                'Select one or more independent variable to include in the regression'),
+                                'Select one or more independent variable to include in the regression.',
+                                tags$b('It may take a few seconds for the dropdown choices to load.')),
                         tags$li(tags$b('Run Model Button:'), 
                                 'Click the button after selecting at least one predictor to estimate the model.')
                        ),
@@ -54,7 +55,13 @@ fluidPage(
                     p('The data was downloaded from US Housing and Urban Development (HUD)', 
                       tags$a(href="http://portal.hud.gov/hudportal/HUD?src=/program_offices/housing/rmra/oe/rpts/sfsnap/sfsnap",
                              target='_blank',
-                             "data portal"), '.')
+                             "data portal.")),
+                    
+                    h4('The Code'),
+                    p('The App source code is available on ', 
+                      tags$a(href="https://github.com/vadimus202/coursera_data_prods/",
+                             target='_blank',
+                             "GitHub."))
                 ),
                 
                 bsCollapsePanel(
